@@ -1,0 +1,41 @@
+int pins[] = {2, 0, 4, 16, 17, 5, 18};
+int data[10][7] = {
+  {0,0,0,0,0,0,1}, // 0
+  {1,0,0,1,1,1, 1}, // 1
+  {0,0,1,0,0,1,0}, // 2
+  {0, 0, 0, 0, 1, 1, 0}, // 3
+  {1, 0, 0, 1, 1, 0, 0}, // 4
+  {0, 1, 0, 0, 1, 0, 0}, // 5
+  {0, 1, 0, 0, 0, 0, 0}, // 6
+  {0, 0, 0, 1, 1, 1, 1}, // 7
+  {0, 0, 0, 0, 0, 0, 0}, // 8
+  {0, 0, 0, 0, 1, 0, 0}, // 9
+};
+
+int currentValue = 0;  
+int buttonPin = 23;   
+
+void setup() {
+  pinMode(buttonPin, INPUT_PULLUP); 
+  Serial.begin(9600);
+  for (int x = 0; x <= 6; x++) {
+    pinMode(pins[x], OUTPUT);
+  }
+}
+
+void updateDisplay(int value) {
+  for (int x = 0; x <= 6; x++) {
+    digitalWrite(pins[x], data[value][x]);
+  }
+}
+
+void loop() {
+  if (digitalRead(buttonPin) == LOW) {  
+    currentValue++;  
+    if (currentValue > 9) {
+      currentValue = 0;  
+    }
+    updateDisplay(currentValue);  
+    delay(300);  
+  }
+}
