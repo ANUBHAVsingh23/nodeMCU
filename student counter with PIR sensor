@@ -1,0 +1,37 @@
+int led = 27;
+int PIR1 = 2; // PIR sensor for student entering
+int PIR2 = 13; // PIR sensor for student leaving
+int init1 = 0;
+int init2 = 0;
+int Student_count = 0;
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(PIR1, INPUT);
+  pinMode(PIR2, INPUT);
+}
+
+void loop() {
+  init1 = digitalRead(PIR1);
+  init2 = digitalRead(PIR2);
+
+  if (init1 == HIGH && init2 == LOW) {
+    delay(5000); 
+    Student_count++;
+    Serial.print("Student Present = ");
+    Serial.println(Student_count);
+  } else if (init1 == LOW && init2 == HIGH) {
+    delay(5000); 
+    if (Student_count > 0) {
+      Student_count--;
+      Serial.print("Student Absent = ");
+      Serial.println(Student_count);
+    }
+  } else if (init1 == HIGH && init2 == HIGH) {
+    delay(5000); 
+    Student_count++;
+    Serial.print("Students Present = ");
+    Serial.println(Student_count);
+  }
+
+}
