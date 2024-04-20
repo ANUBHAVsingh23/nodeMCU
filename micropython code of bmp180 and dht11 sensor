@@ -1,0 +1,83 @@
+# Define Blynk credentials (if using Blynk, replace with your actual values)
+BLYNK_AUTH_TOKEN = "5UD9hNbhtPx5xNpJK47xp6Ka6jjXJccQ"
+SSID = "Dy"
+PASS = "123456798"
+#define BLYNK_TEMPLATE_ID "TMPL3VsPV9QhU"
+#define BLYNK_TEMPLATE_NAME "WatherSystem"
+
+# Import potentially compatible libraries (replace with actual names if available)
+import machine
+import time
+from machine import ADC  # Assuming analog reading for rain sensor
+from machine import Pin  # Assuming digital reading for LDR sensor
+
+# Initialize hardware pins (adjust based on your setup)
+rain_pin = ADC(Pin(A0))
+light_pin = Pin(D0, Pin.IN)  # Input mode for LDR sensor
+
+# Helper function (replace with actual implementation if needed)
+def map_value(x, in_min, in_max, out_min, out_max):
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+# Functions (replace with compatible library functions or custom implementations)
+def get_dht11_data():
+    # Replace with DHT sensor library call if available
+    # Example (assuming a compatible DHT11 library):
+    # dht = DHT11(machine.Pin(D3))  # Adjust pin if needed
+    # h = dht.read_humidity()
+    # t = dht.read_temperature()
+    # return h, t
+    pass
+
+def get_rain_data():
+    value = rain_pin.read_analog()  # Assuming analog reading
+    value = map_value(value, 0, 1023, 0, 100)  # Map to 0-100 range
+    return value
+
+def get_pressure_data():
+    # Replace with BMP180 sensor library call if available
+    pass
+
+def get_ldr_data():
+    value = light_pin.value()  # Read digital value (0 or 1)
+    return value
+
+def send_data_to_blynk(humidity, temperature, rain_value, pressure, ldr_value):
+    # Replace with appropriate Blynk library calls if using Blynk
+    # Example (assuming a compatible Blynk library):
+    # blynk = Blynk(BLYNK_AUTH_TOKEN)
+    # blynk.virtual_write(V0, temperature)
+    # blynk.virtual_write(V1, humidity)
+    # ... (send other data to virtual pins)
+    pass
+
+def update_lcd_display(humidity, temperature, rain_value, pressure, ldr_value):
+    # Replace with compatible LCD library calls or custom code
+    # Example (assuming a compatible lcd library):
+    # lcd.print("T: {}".format(temperature))
+    # lcd.print("H: {}".format(humidity))
+    # ... (display other data on LCD)
+    pass
+
+def setup():
+    # Blynk setup (replace with appropriate library calls if using Blynk)
+    # ...
+
+    # DHT sensor (replace with compatible library initialization)
+    # ...
+
+    # LCD display (replace with compatible library initialization or custom code)
+    # ...
+
+def loop():
+    # Blynk loop (replace with appropriate library calls if using Blynk)
+    # ...
+
+    # Read sensor data
+    humidity, temperature = get_dht11_data()
+    rain_value = get_rain_data()
+    pressure = get_pressure_data()  # Replace with actual pressure reading
+    ldr_value = get_ldr_data()
+
+    # Send data to Blynk (if applicable)
+    send_data_to_blynk(humidity, temperature, rain_value, pressure, ldr_
