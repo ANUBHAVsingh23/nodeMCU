@@ -1,0 +1,141 @@
+from blynkLib import Blynk  # Blynk library
+from machine import I2C, Pin, ADC ,SoftI2C # Hardware libraries
+import time  # Timing functions
+import network
+
+from i2c_lcd import I2cLcd
+import dht
+from bmp180 import BMP180
+
+
+BLYNK_AUTH_TOKEN = "IS6Ux5UuPWHZNgEAioJf_BkbzD_LxYI1"
+rain_sensor_pin = 32  # (Comment: Pin connected to the rain sensor)
+
+# Initialization
+led = Pin(2, Pin.OUT)
+sensor_dht = dht.DHT11(Pin(15))
+adc = ADC(Pin(rain_sensor_pin))
+
+
+# I2C configuration
+scl = Pin(22)  # SCL Pin
+sda = Pin(21)  # SDA Pin
+bus = SoftI2C(scl=scl, sda=sda, freq=100000)
+
+# Create BMP180 object
+bmp180 = BMP180(bus)
+
+# (Optional) Set oversampling for better accuracy (trade-off with speed)
+bmp180.oversample_sett = 2  # 0 (lowest), 1, 2, 3 (highest)
+
+# (Optional) Set baseline pressure (sea level pressure in Pa)
+# for altitude calculations (default: 101325 Pa)
+#bmp180.baseline = 101500  # Example sea level pressure
+
+# Create LCD object (assuming address 0x27, 2 rows, 16 columns)
+lcd = I2cLcd(bus, 0x27, 2, 16)
+
+
+
+
+
+
+V0 =0
+V1=1
+V2=2
+V3=3
+
+
+wifi= network.WLAN(network.STA_IF) 
+wifi.active(True) 
+wifi.connect("dy","123456798") 
+ 
+while not wifi.isconnected(): 
+    pass 
+print("Wifi Connected Successfully") 
+ 
+blynk= Blynk(BLYNK_AUTH_TOKEN) 
+
+
+
+
+
+
+#Blink printing function
+
+
+def blynk_tempratur(value):
+    blynk.virtual_write(V0,value)
+
+def blynk_humidity(value):
+    blynk.virtual_write(V1,value)
+
+def blynk_rainfall(value):
+    blynk.virtual_write(V2, value)
+  
+def blynk_pressuare(value):
+    blynk.virtual_write(V3,value)
+
+
+# --- Functions ---
+def dht11_sensor():
+    sensor_dht.measure()
+
+
+def rain_sensor():
+  sensor_value = adc.read()    
+  return sensor_value
+
+def pressure():
+    pressure = bmp180.pressure
+    pressure = int(pressure/100)
+    return pressure
+    
+    
+    
+    # Read BMP180 pressure and temperature and update Blynk virtual pin
+    # ... (implementation using bmp180 library)
+
+def led_control(value): 
+    if int(value[0])==1: 
+        led.on() 
+    else: 
+        led.off() 
+
+
+def i2c_lcd_print():
+    dht11_sensor()
+    temprature_value = sensor_dht.temperature()
+    humidity_value =sensor_dht.humidity()
+    pressure_value = pressure()
+    rain_value = rain_sensor()    
+    lcd.move_to(0,0)
+    lcd.putstr('T:%.1f'%temprature_value)
+    lcd.move_to(8,0)
+    lcd.putstr('H:%.1f'%humidity_value)
+    lcd.move_to(0,1)
+    lcd.putstr('P:%.1f'%pressure_value)
+    lcd.move_to(8,1)
+    lcd.putstr('R:%.1f'%rain_value)
+    blynk_tempratur(temprature_value)
+    blynk_humidity(humidity_value)
+    blynk_pressuare(pressure_value)
+    blynk_rainfall(rain_value)
+    
+
+
+
+
+
+
+
+
+
+
+blynk.on("V4",led_control) 
+
+# --- Main Loop ---
+while True:
+    blynk.run()  # Run Blynk
+    i2c_lcd_print()
+    time.sleep_ms(200)  # Delay between readings6
