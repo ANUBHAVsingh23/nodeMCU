@@ -1,0 +1,187 @@
+import machine
+from machine import Pin, SoftI2C, Timer
+from time import sleep_ms
+from lcd_api import LcdApi
+from i2c_lcd import I2cLcd
+import time
+import ubluetooth
+from ggsheet import MicroGoogleSheet
+from network import WLAN,STA_IF
+
+I2C_ADDR = 0x27
+totalRows = 2
+totalColumns = 16
+
+i2c = SoftI2C(scl=Pin(22), sda=Pin(21), freq=10000)
+lcd = I2cLcd(i2c, I2C_ADDR, totalRows, totalColumns)
+
+# Network Creadential 
+ssid = "LAPTOP-AR1TDME3 5270"    
+password = "123456780"
+
+# Morse code dictionary
+morse_code_dict = {
+    'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.', 'G': '--.', 'H': '....',
+    'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---', 'P': '.--.',
+    'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
+    'Y': '-.--', 'Z': '--..',
+    '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....', '6': '-....', '7': '--...',
+    '8': '---..', '9': '----.', '0': '-----',
+    '.': '.-.-.-', ',': '--..--', '?': '..--..', "'": '.----.', '!': '-.-.--', '/': '-..-.', '(': '-.--.',
+    ')': '-.--.-', '&': '.-...', ':': '---...', ';': '-.-.-.', '=': '-...-', '+': '.-.-.', '-': '-....-',
+    '_': '..--.-', '"': '.-..-.', '$': '...-..-', '@': '.--.-.', ' ': '/'
+}
+
+# Connect to Network
+sta_if = WLAN(STA_IF)
+sta_if.active(True)
+if not sta_if.isconnected():
+   print("Connecting to wifi: ", ssid)
+   sta_if.connect(ssid, password)
+   while not sta_if.isconnected():
+       pass
+print("Connection successful")
+
+# Google Sheet Credential 
+google_sheet_url = "https://docs.google.com/spreadsheets/d/1apQzAzvUn32aCWClv3VY_T5vbRN9NkQviDrsaz-MWjM/edit#gid=0"
+google_sheet_name = "data"
+google_app_deployment_id = "AKfycbwHGgw6nGxGMjYqMSxgOB3qlSUZD_4C_eWoxpMwUHPVtkTFI1zhjW6hAXCK6-3vcxW7"
+
+# Create Instance 
+ggsheet = MicroGoogleSheet(google_sheet_url,google_sheet_name)
+ggsheet.set_DeploymentID(google_app_deployment_id)
+
+# BLE setup
+message = ""
+
+class ESP32_BLE():
+    def __init__(self, name):
+        self.led = Pin(2, Pin.OUT)
+        self.timer1 = Timer(0)
+        
+        self.name = name
+        self.ble = ubluetooth.BLE()
+        self.ble.active(True)
+        self.disconnected()
+        self.ble.irq(self.ble_irq)
+        self.register()
+        self.advertiser()
+
+    def connected(self):
+        self.led.value(1)
+        self.timer1.deinit()
+        lcd.putstr("connected")
+        sleep_ms(100)
+        lcd.clear()
+        lcd.putstr("")
+        
+
+    def disconnected(self):        
+        self.timer1.init(period=100, mode=Timer.PERIODIC, callback=lambda t: self.led.value(not self.led.value()))
+
+    def ble_irq(self, event, data):
+        global message
+        
+        if event == 1:
+            self.connected()
+
+        elif event == 2:
+            self.advertiser()
+            self.disconnected()
+        
+        elif event == 3:
+            buffer = self.ble.gatts_read(self.rx)
+            message = buffer.decode('UTF-8').strip()
+            print(message)
+            self.process_input(message)
+
+    def register(self):        
+        NUS_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E'
+        RX_UUID = '6E400002-B5A3-F393-E0A9-E50E24DCCA9E'
+        TX_UUID = '6E400003-B5A3-F393-E0A9-E50E24DCCA9E'
+            
+        BLE_NUS = ubluetooth.UUID(NUS_UUID)
+        BLE_RX = (ubluetooth.UUID(RX_UUID), ubluetooth.FLAG_WRITE)
+        BLE_TX = (ubluetooth.UUID(TX_UUID), ubluetooth.FLAG_NOTIFY)
+            
+        BLE_UART = (BLE_NUS, (BLE_TX, BLE_RX,))
+        SERVICES = (BLE_UART, )
+        ((self.tx, self.rx,), ) = self.ble.gatts_register_services(SERVICES)
+
+    def send(self, data):
+        self.ble.gatts_notify(0, self.tx, data + '\n')
+
+    def advertiser(self):
+        name = bytes(self.name, 'UTF-8')
+        adv_data = bytearray(b'\x02\x01\x02') + bytearray((len(name) + 1, 0x09)) + name
+        self.ble.gap_advertise(100, adv_data)
+        print(adv_data)
+        print("\r\n")
+
+    def process_input(self, input_text):
+        lcd.clear()
+
+        if '-' in input_text or '.' in input_text:
+            output_text = self.morse_to_text(input_text)
+            if output_text == ' ':
+                print("Invalid input")
+            else:
+                print("Text output:", output_text)
+                lcd.move_to(0, 0)
+                lcd.putstr(str(output_text))
+                # Update the data to a specific cell (Row,Column,
+                #ggsheet.updateCell(2,2,str(output_text)) 
+        else:
+            morse_code = self.text_to_morse(input_text)
+            if morse_code == ' ':
+                print("Invalid input")
+            else:
+                print("Morse code output:", morse_code)
+                lcd.move_to(0, 0)
+                lcd.putstr(str(morse_code))
+            self.output_morse(morse_code)
+
+    def text_to_morse(self, text):
+        morse_code = ''
+        for char in text:
+            morse_code += morse_code_dict.get(char.upper(), '') + ' '
+        return morse_code
+    
+    #buzzer
+    def output_morse(self, morse_code):
+        buzzer_pin = 25
+        buzzer = machine.PWM(machine.Pin(buzzer_pin))
+        buzzer.duty(0)
+        buzzer.freq(1000)
+
+        for symbol in morse_code:
+            if symbol == '.':
+                buzzer.duty(512)
+                time.sleep(0.1)
+                buzzer.duty(0)
+                time.sleep(0.1)
+            elif symbol == '-':
+                buzzer.duty(512)
+                time.sleep(0.3)
+                buzzer.duty(0)
+                time.sleep(0.1)
+            elif symbol == ' ':
+                time.sleep(0.2)
+
+    def morse_to_text(self, morse_code):
+        text = ''
+        morse_code_words = morse_code.split('/')
+        for word in morse_code_words:
+            morse_code_letters = word.split()
+            for letter in morse_code_letters:
+                for key, value in morse_code_dict.items():
+                    if value == letter:
+                        text += key
+                        break
+            text += ' '
+        return text
+
+ble = ESP32_BLE("WERTYUI")
+
+while True:
+    sleep_ms(1000)  # Sleep to save power
